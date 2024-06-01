@@ -1,6 +1,6 @@
 # Excel-Loss-Summary-Automation
 
-#### table_to_dictionary.bas
+### table_to_dictionary.bas
 Extracts data from excel table with 16 columns and many rows. 
 Creates a nested dictionary with a composite key as the primary key for the outer dictionary.
 The composite key uses claim number and valuation date to allow for type 2 SCD.
