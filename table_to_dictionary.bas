@@ -1,4 +1,3 @@
-Attribute VB_Name = "Module1"
 Option Explicit
 ' First, ensure you have the Microsoft VBScript Regular Expressions reference enabled
 ' Open the VBA editor with Alt + F11.
@@ -9,9 +8,9 @@ Function ExtractTableToDictionary() As Scripting.Dictionary
     Dim ws As Worksheet
     Dim claim_table As ListObject
     Dim headers() As String
-    Dim all_claims, claim_data As Object
-    Dim row_number, column_number As Long
-    Dim header, cell_value As String
+    Dim all_claims As Object, claim_data As Object
+    Dim row_number As Long, column_number As Long
+    Dim header As String, cell_value As String, primary_key As String
     
     ' Define the worksheet and table
     Set ws = ThisWorkbook.Worksheets("loss_sheet")
@@ -36,8 +35,11 @@ Function ExtractTableToDictionary() As Scripting.Dictionary
             End If
             claim_data(header) = cell_value
         Next column_number
+        
+        'create a composite key to track slowly changing dimensions (claim valuations over time)
+        primary_key = claim_data("claim_number") & "_vao_" & claim_data("valuation_date")
         ' Add the row dictionary to the main dictionary
-        all_claims.Add claim_data("claim_number"&), claim_data
+        all_claims.Add primary_key, claim_data
     Next row_number
     
     Set ExtractTableToDictionary = all_claims 'Return the  dictionary
@@ -144,5 +146,4 @@ Function MakeSentenceCase(input_string As String)
     ' Return the modified string
     MakeSentenceCase = new_string
 End Function
-
 
