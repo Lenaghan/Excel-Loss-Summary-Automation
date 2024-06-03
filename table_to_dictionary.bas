@@ -1,3 +1,4 @@
+Attribute VB_Name = "Loss_Summary_Automation"
 Option Explicit
 ' First, ensure you have the Microsoft VBScript Regular Expressions reference enabled
 ' Open the VBA editor with Alt + F11.
@@ -45,25 +46,81 @@ Function ExtractTableToDictionary() As Scripting.Dictionary
     Set ExtractTableToDictionary = all_claims 'Return the  dictionary
 End Function
 
+Function AggregateClaimsData(ByRef claimsDict As Scripting.Dictionary) As Scripting.Dictionary
+    Dim aggregatedDict As Scripting.Dictionary
+    Dim primary_key As Variant
+    Dim claimData As Scripting.Dictionary
+    Dim coverage As String, policy_year As String
+    Dim coverage_policy_year As String
+    Dim claim_count As Long
+    Dim paid_total As Double, reserve_total As Double, incurred_total As Double
+    
+    ' Create the dictionary to store the aggregated data
+    Set aggregatedDict = CreateObject("Scripting.Dictionary")
+    
+    ' Loop through each claim in the input dictionary
+    For Each primary_key In claimsDict.Keys
+        Set claimData = claimsDict(primary_key)
+        
+        ' Retrieve necessary values
+        coverage = claimData("coverage")
+        policy_year = CInt(claimData("policy_year"))
+        paid_total = CDbl(claimData("paid"))
+        reserve_total = CDbl(claimData("reserve"))
+        incurred_total = CDbl(claimData("incurred"))
+        
+        ' Create composite key
+        If coverage = "Products Liability" Then
+            coverage_policy_year = "General Liability" & "_" & policy_year
+        Else
+            coverage_policy_year = coverage & "_" & policy_year
+        End If
+        
+        ' Check if the composite key already exists in the aggregated dictionary
+        If Not aggregatedDict.Exists(coverage_policy_year) Then
+            ' Initialize the nested dictionary for the new composite key
+            Set aggregatedDict(coverage_policy_year) = CreateObject("Scripting.Dictionary")
+            aggregatedDict(coverage_policy_year)("coverage") = coverage
+            aggregatedDict(coverage_policy_year)("policy_year") = policy_year
+            aggregatedDict(coverage_policy_year)("claim_count") = 0
+            aggregatedDict(coverage_policy_year)("paid_total") = 0
+            aggregatedDict(coverage_policy_year)("reserve_total") = 0
+            aggregatedDict(coverage_policy_year)("incurred_total") = 0
+        End If
+        
+        ' Update the aggregated values
+        aggregatedDict(coverage_policy_year)("claim_count") = aggregatedDict(coverage_policy_year)("claim_count") + 1
+        aggregatedDict(coverage_policy_year)("paid_total") = aggregatedDict(coverage_policy_year)("paid_total") + paid_total
+        aggregatedDict(coverage_policy_year)("reserve_total") = aggregatedDict(coverage_policy_year)("reserve_total") + reserve_total
+        aggregatedDict(coverage_policy_year)("incurred_total") = aggregatedDict(coverage_policy_year)("incurred_total") + incurred_total
+    Next primary_key
+    
+    ' Return the aggregated dictionary
+    Set AggregateClaimsData = aggregatedDict
+End Function
+
 Sub TestExtractTableToDictionary()
     Dim claimData As Scripting.Dictionary
     Dim i As Long
-    Dim claimNumber, key As Variant
-    Dim rowDict As Scripting.Dictionary
+    Dim aggregation, total As Variant
+    Dim cpy As Scripting.Dictionary
+    Dim aggregatedDict As Scripting.Dictionary
     
     ' Call the function to get the dictionary
     Set claimData = ExtractTableToDictionary()
     
+    ' Call the function to aggregate claims data using the existing all_claims dictionary
+    Set aggregatedDict = AggregateClaimsData(claimData)
+    
     ' Print the items in the dictionary
-    For Each claimNumber In claimData.Keys
-        Set rowDict = claimData.Item(claimNumber)
-        Debug.Print "Claim Number " & claimNumber & ":"
-        For Each key In rowDict.Keys
-            Debug.Print "    " & key & ": " & rowDict(key)
-        Next key
-    Next claimNumber
+    For Each aggregation In aggregatedDict.Keys
+        Set cpy = aggregatedDict.Item(aggregation)
+        Debug.Print aggregation & ":"
+        For Each total In cpy.Keys
+            Debug.Print "    " & total & ": " & cpy(total)
+        Next total
+    Next aggregation
 End Sub
-
 
 Function MakeSnakeCase(input_string As String)
     Dim regEx As Object
@@ -105,20 +162,17 @@ Function MakeSentenceCase(input_string As String)
     regEx.Pattern = "[@#$%^&*+_={}\[\]\|\\\/<>`~]"
         
     input_string = Trim(input_string) ' Remove leading and trailing whitespace
-    input_string = regEx.Replace(input_string, "") ' Remove special charactes in regex pattern
+    input_string = regEx.Replace(input_string, "") ' Remove special characters in regex pattern
     
-    ' If the input string is empty, return an empty string
-    If Len(input_string) = 0 Then
-        MakeSentenceCase = ""
+    If Len(input_string) = 0 Then ' If the input string is empty,
+        MakeSentenceCase = ""     ' return an empty string
         Exit Function
     End If
-        
+    
+    is_new_sentence = False ' Initialize the new sentence flag
     input_string = LCase(input_string) ' Convert the entire string to lowercase
     new_string = UCase(Left(input_string, 1)) ' Capitalize the first character
-    is_new_sentence = False ' Initialize the new sentence flag
-        
-    ' Loop through the rest of the string
-    For i = 2 To Len(input_string)
+    For i = 2 To Len(input_string) ' Loop through the rest of the string
         new_character = Mid(input_string, i, 1)
 
         If is_new_sentence Then
@@ -146,4 +200,3 @@ Function MakeSentenceCase(input_string As String)
     ' Return the modified string
     MakeSentenceCase = new_string
 End Function
-
