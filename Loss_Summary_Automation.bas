@@ -4,7 +4,38 @@ Option Explicit
 ' Open the VBA editor with Alt + F11.
 ' Go to Tools > References.
 ' Check Microsoft VBScript Regular Expressions 5.5
+'        ToDo:
+'        Get normalized score of coverages to determine order ---> zi = (xi-min(x)) / (max(x)-min(x))
+'        Output and format Summary
+'        Output and format details
+'            Account for page breaks
+'        Output and format open claims
+'        Deliver standalone workbook
 
+Sub CreateLossSummary()
+    Dim all_claims As Scripting.Dictionary
+    Dim i As Long
+    Dim aggregation, total As Variant
+    Dim cpy As Scripting.Dictionary
+    Dim all_totals As Scripting.Dictionary
+    
+    Application.ScreenUpdating = False
+    
+    ' Call the function to get the dictionary, all_claims
+    Set all_claims = ExtractTableToDictionary()
+    
+    ' Call the function to aggregate claims data using the existing all_claims dictionary
+    Set all_totals = AggregateClaimsData(all_claims)
+    
+    ' Print the items in the dictionary to test
+    For Each aggregation In all_totals.Keys
+        Set cpy = all_totals.Item(aggregation)
+        Debug.Print aggregation & ":"
+        For Each total In cpy.Keys
+            Debug.Print "    " & total & ": " & cpy(total)
+        Next total
+    Next aggregation
+End Sub
 Function ExtractTableToDictionary() As Scripting.Dictionary
     Dim ws As Worksheet
     Dim claim_table As ListObject
@@ -46,28 +77,28 @@ Function ExtractTableToDictionary() As Scripting.Dictionary
     Set ExtractTableToDictionary = all_claims 'Return the  dictionary
 End Function
 
-Function AggregateClaimsData(ByRef claimsDict As Scripting.Dictionary) As Scripting.Dictionary
-    Dim aggregatedDict As Scripting.Dictionary
+Function AggregateClaimsData(ByRef input_claims As Scripting.Dictionary) As Scripting.Dictionary
+    Dim all_totals As Scripting.Dictionary
     Dim primary_key As Variant
-    Dim claimData As Scripting.Dictionary
-    Dim coverage As String, policy_year As String
+    Dim claim_data As Scripting.Dictionary
+    Dim coverage As String, policy_year As String, status As String
     Dim coverage_policy_year As String
     Dim claim_count As Long
     Dim paid_total As Double, reserve_total As Double, incurred_total As Double
     
     ' Create the dictionary to store the aggregated data
-    Set aggregatedDict = CreateObject("Scripting.Dictionary")
+    Set all_totals = CreateObject("Scripting.Dictionary")
     
     ' Loop through each claim in the input dictionary
-    For Each primary_key In claimsDict.Keys
-        Set claimData = claimsDict(primary_key)
+    For Each primary_key In input_claims.Keys
+        Set claim_data = input_claims(primary_key)
         
         ' Retrieve necessary values
-        coverage = claimData("coverage")
-        policy_year = CInt(claimData("policy_year"))
-        paid_total = CDbl(claimData("paid"))
-        reserve_total = CDbl(claimData("reserve"))
-        incurred_total = CDbl(claimData("incurred"))
+        coverage = claim_data("coverage")
+        policy_year = CInt(claim_data("policy_year"))
+        paid_total = CDbl(claim_data("paid"))
+        reserve_total = CDbl(claim_data("reserve"))
+        incurred_total = CDbl(claim_data("incurred"))
         
         ' Create composite key
         If coverage = "Products Liability" Then
@@ -77,50 +108,32 @@ Function AggregateClaimsData(ByRef claimsDict As Scripting.Dictionary) As Script
         End If
         
         ' Check if the composite key already exists in the aggregated dictionary
-        If Not aggregatedDict.Exists(coverage_policy_year) Then
+        If Not all_totals.Exists(coverage_policy_year) Then
             ' Initialize the nested dictionary for the new composite key
-            Set aggregatedDict(coverage_policy_year) = CreateObject("Scripting.Dictionary")
-            aggregatedDict(coverage_policy_year)("coverage") = coverage
-            aggregatedDict(coverage_policy_year)("policy_year") = policy_year
-            aggregatedDict(coverage_policy_year)("claim_count") = 0
-            aggregatedDict(coverage_policy_year)("paid_total") = 0
-            aggregatedDict(coverage_policy_year)("reserve_total") = 0
-            aggregatedDict(coverage_policy_year)("incurred_total") = 0
+            Set all_totals(coverage_policy_year) = CreateObject("Scripting.Dictionary")
+            all_totals(coverage_policy_year)("coverage") = coverage
+            all_totals(coverage_policy_year)("policy_year") = policy_year
+            all_totals(coverage_policy_year)("open_claim_count") = 0
+            all_totals(coverage_policy_year)("claim_count") = 0
+            all_totals(coverage_policy_year)("paid_total") = 0
+            all_totals(coverage_policy_year)("reserve_total") = 0
+            all_totals(coverage_policy_year)("incurred_total") = 0
         End If
         
         ' Update the aggregated values
-        aggregatedDict(coverage_policy_year)("claim_count") = aggregatedDict(coverage_policy_year)("claim_count") + 1
-        aggregatedDict(coverage_policy_year)("paid_total") = aggregatedDict(coverage_policy_year)("paid_total") + paid_total
-        aggregatedDict(coverage_policy_year)("reserve_total") = aggregatedDict(coverage_policy_year)("reserve_total") + reserve_total
-        aggregatedDict(coverage_policy_year)("incurred_total") = aggregatedDict(coverage_policy_year)("incurred_total") + incurred_total
+        If claim_data("status") <> "Closed" Then
+            all_totals(coverage_policy_year)("open_claim_count") = all_totals(coverage_policy_year)("open_claim_count") + 1
+        End If
+        all_totals(coverage_policy_year)("claim_count") = all_totals(coverage_policy_year)("claim_count") + 1
+        all_totals(coverage_policy_year)("paid_total") = all_totals(coverage_policy_year)("paid_total") + paid_total
+        all_totals(coverage_policy_year)("reserve_total") = all_totals(coverage_policy_year)("reserve_total") + reserve_total
+        all_totals(coverage_policy_year)("incurred_total") = all_totals(coverage_policy_year)("incurred_total") + incurred_total
     Next primary_key
     
     ' Return the aggregated dictionary
-    Set AggregateClaimsData = aggregatedDict
+    Set AggregateClaimsData = all_totals
 End Function
 
-Sub TestExtractTableToDictionary()
-    Dim claimData As Scripting.Dictionary
-    Dim i As Long
-    Dim aggregation, total As Variant
-    Dim cpy As Scripting.Dictionary
-    Dim aggregatedDict As Scripting.Dictionary
-    
-    ' Call the function to get the dictionary
-    Set claimData = ExtractTableToDictionary()
-    
-    ' Call the function to aggregate claims data using the existing all_claims dictionary
-    Set aggregatedDict = AggregateClaimsData(claimData)
-    
-    ' Print the items in the dictionary
-    For Each aggregation In aggregatedDict.Keys
-        Set cpy = aggregatedDict.Item(aggregation)
-        Debug.Print aggregation & ":"
-        For Each total In cpy.Keys
-            Debug.Print "    " & total & ": " & cpy(total)
-        Next total
-    Next aggregation
-End Sub
 
 Function MakeSnakeCase(input_string As String)
     Dim regEx As Object
@@ -200,3 +213,5 @@ Function MakeSentenceCase(input_string As String)
     ' Return the modified string
     MakeSentenceCase = new_string
 End Function
+
+
