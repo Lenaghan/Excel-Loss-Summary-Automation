@@ -26,7 +26,13 @@ A unit test is included.
 5. TestExtractTableToDictionary  
      Call the ExtractTableToDictionary function and sets a new dictionary with the return value.
      Uses nested loops to iterate through the dictionary.
-     Prints the key, value pairs to the immediate window. 
+     Prints the key, value pairs to the immediate window.
+6. AggregateClaimsData  
+     Takes a scripting dictionary as input parameter.
+     Creates a new dictionary using coverage and policy_year as composite key.
+     The inner dictionary holds claim count, and totals for paid, reserves, and incurred.
+     Totals are by coverage, and within that by year.
+     Function returns a scripting dictionary.
 
 Next: Aggregate claim counts and values by coverage type and year.   
 Following: The end product will produce a presentable summary of the data in multiple pages, including aggregate values and details.
