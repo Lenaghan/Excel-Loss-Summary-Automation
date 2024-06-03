@@ -30,7 +30,7 @@ A unit test is included.
 6. AggregateClaimsData  
      Takes a scripting dictionary as input parameter.
      Creates a new dictionary using coverage and policy_year as composite key.
-     The inner dictionary holds claim count, and totals for paid, reserves, and incurred.
+     The inner dictionary holds the cvount of all claims, open claims, and totals for paid, reserves, and incurred.
      Totals are by coverage, and within that by year.
      Function returns a scripting dictionary.
 
